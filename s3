@@ -1,0 +1,51 @@
+https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket.html#cfn-s3-bucket-publicaccessblockconfiguration
+https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/quickref-s3.html#scenario-s3-bucket
+https://dev.classmethod.jp/articles/cloudformation-s3bucket-type/
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: S3
+Parameters:
+  Env:
+    Type: String
+    AllowedValues:
+      - stg
+      - prd
+  SystemName:
+    Type: String
+    AllowedValues:
+      - test
+
+
+Resources: 
+  s3Bucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      AccessControl: Private
+      BucketName: !Sub ${SystemName}-${Env}-inf-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+
+  s3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref s3Bucket
+      PolicyDocument: 
+        Id: PolicyDemo
+        Version: 2012-10-17
+        Statement:
+          - Sid: Allow-from-specific-only
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: 
+              - !Sub arn:aws:s3:::${s3Bucket}/*
+              - !Sub arn:aws:s3:::${s3Bucket}
+            Condition: 
+              NotIpAddress:
+                'aws:SourceIp':
+                - 'zzz.zzz.zzz.zzz/32'
+
+
