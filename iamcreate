@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CreateIAM
+
+Parameters:
+  Env:
+    Type: String
+    AllowedValues:
+      - stg
+      - prd
+  SystemName:
+    Type: String
+    AllowedValues:
+      - test
+
+Resources:
+  infiamGroup:   
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub ${SystemName}-${Env}-inf-group
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/AdministratorAccess
+        - arn:aws:iam::aws:policy/AmazonAPIGatewayAdministrator
+
+  infiamPolicy1: 
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${SystemName}-${Env}-inf-policy1
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'cloudformation:*'
+            Resource: '*'
+      Groups:
+        - !Ref infiamGroup
+
+  infiamPolicy2: 
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${SystemName}-${Env}-inf-policy2
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'cloudformation:Describe*'
+            Resource: '*'
+      Groups:
+        - !Ref infiamGroup
