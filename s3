@@ -17,21 +17,40 @@ Parameters:
 
 
 Resources: 
-  s3Bucket:
+  samples3Bucket:
     Type: AWS::S3::Bucket
     Properties: 
       AccessControl: Private
       BucketName: !Sub ${SystemName}-${Env}-inf-${AWS::AccountId}
+      BucketEncryption: 
+        ServerSideEncryptionConfiguration: 
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
       PublicAccessBlockConfiguration:
         BlockPublicAcls: True
         BlockPublicPolicy: True
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
+      VersioningConfiguration:
+        Status: Enabled
+      ObjectLockEnabled: True
+      ObjectLockConfiguration: 
+        ObjectLockEnabled: "Enabled"
+        Rule:
+          DefaultRetention:
+            Mode: COMPLIANCE
+            Days: 365
+      LifecycleConfiguration:
+        Rules:
+          - Id: lifecycle-370
+            Status: Enabled
+            ExpirationInDays: 370
+            NoncurrentVersionExpirationInDays: 10
 
   s3BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !Ref s3Bucket
+      Bucket: !Ref samples3Bucket
       PolicyDocument: 
         Id: PolicyDemo
         Version: 2012-10-17
@@ -41,11 +60,9 @@ Resources:
             Principal: '*'
             Action: 's3:*'
             Resource: 
-              - !Sub arn:aws:s3:::${s3Bucket}/*
-              - !Sub arn:aws:s3:::${s3Bucket}
+              - !Sub arn:aws:s3:::${samples3Bucket}/*
+              - !Sub arn:aws:s3:::${samples3Bucket}
             Condition: 
               NotIpAddress:
                 'aws:SourceIp':
                 - 'zzz.zzz.zzz.zzz/32'
-
-
