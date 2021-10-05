@@ -1,0 +1,152 @@
+#https://dev.classmethod.jp/articles/guardduty-export-s3/
+AWSTemplateFormatVersion: 2010-09-09
+Description: enable guardduty and set S3,KMS
+Parameters:
+  Env:
+    Type: String
+    AllowedValues:
+      - stg
+      - prd
+  SystemName:
+    Type: String
+    AllowedValues:
+      - test
+
+
+Resources:
+  GDD:
+    Type: 'AWS::GuardDuty::Detector'
+    Properties:
+      Enable: true
+# ------------------------------------------------------------#
+# KMS key for GuardDuty
+# ------------------------------------------------------------#
+  KMSK:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: "Key for GuardDuty"
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: "key-default-1"
+        Statement:
+         -
+            Sid: "Enable IAM User Permissions"
+            Effect: "Allow"
+            Principal:
+               AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+         -
+            Sid: "Enable IAM User Permissions"
+            Effect: "Allow"
+            Principal:
+               AWS: !Sub "arn:aws:iam::${AWS::AccountId}:user/hijiri"
+            Action: "kms:*"
+            Resource: "*"
+         -
+            Sid: "Allow GuardDuty to use the key"
+            Effect: "Allow"
+            Principal:
+              Service: "guardduty.amazonaws.com"
+            Action:
+              - "kms:GenerateDataKey"
+            Resource: "*"
+      PendingWindowInDays: 7
+  KMSA:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: "alias/KMS-GuardDuty"
+      TargetKeyId:
+        Ref: KMSK
+# ------------------------------------------------------------#
+# S3 Bucket for GuardDuty
+# ------------------------------------------------------------#
+  S3B:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub ${SystemName}-${Env}-guardduty-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: 365days-All-LifeCycleRule
+            Status: Enabled
+            ExpirationInDays: 365
+            NoncurrentVersionExpirationInDays: 10
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+  S3BP:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket:
+        Ref: "S3B"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: "Deny non-HTTPS access"
+            Action: ['s3:*']
+            Effect: "Deny"
+            Resource:
+            - !Join ['', ['arn:aws:s3:::', !Ref 'S3B','/*']]
+            Principal:
+              Service: [guardduty.amazonaws.com]
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+          - Sid: "Deny incorrect encryption header"
+            Action: ['s3:PutObject']
+            Effect: "Deny"
+            Resource:
+            - !Join ['', ['arn:aws:s3:::', !Ref 'S3B','/*']]
+            Principal:
+              Service: [guardduty.amazonaws.com]
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption-aws-kms-key-id: !GetAtt KMSK.Arn
+          - Sid: "Deny unencrypted object uploads"
+            Action: ['s3:PutObject']
+            Effect: "Deny"
+            Resource:
+            - !Join ['', ['arn:aws:s3:::', !Ref 'S3B','/*']]
+            Principal:
+              Service: [guardduty.amazonaws.com]
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption: "aws:kms"
+          - Sid: "Allow PutObject"
+            Action: ['s3:PutObject']
+            Effect: "Allow"
+            Resource:
+            - !Join ['', ['arn:aws:s3:::', !Ref 'S3B','/*']]
+            Principal:
+              Service: [guardduty.amazonaws.com]
+            Condition:
+              StringEquals:
+                'aws:SourceAccount': !Sub ${AWS::AccountId}
+                'aws:SourceArn': !Join
+                                   - ''
+                                   - - 'arn:aws:guardduty:ap-northeast-1:'
+                                     - !Ref 'AWS::AccountId'
+                                     - ':detector/'
+                                     - !Ref 'GDD'
+          - Sid: "Allow GetBucketLocation"
+            Action: ['s3:GetBucketLocation']
+            Effect: "Allow"
+            Resource:
+            - !Join ['', ['arn:aws:s3:::', !Ref 'S3B']]
+            Principal:
+              Service: [guardduty.amazonaws.com]
+            Condition:
+              StringEquals:
+                'aws:SourceAccount': !Sub ${AWS::AccountId}              
+                'aws:SourceArn': !Join
+                                   - ''
+                                   - - 'arn:aws:guardduty:ap-northeast-1:'
+                                     - !Ref 'AWS::AccountId'
+                                     - ':detector/'
+                                     - !Ref 'GDD'
