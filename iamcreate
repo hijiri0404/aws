@@ -13,38 +13,297 @@ Parameters:
       - test
 
 Resources:
-  infiamGroup:   
+#------------------------#
+#Common                  #
+#------------------------#
+#------------------------#
+#IAM poliby              #
+#------------------------#
+  mfapolicy: 
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub ${SystemName}-${Env}-mfa-policy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Sid: 'AllowIndividualUserToManageTheirOwnMFA'
+            Action:
+              - 'iam:CreateVirtualMFADevice'
+              - 'iam:DeleteVirtualMFADevice'
+              - 'iam:DeactivateMFADevice'
+              - 'iam:EnableMFADevice'
+              - 'iam:ResyncMFADevice'
+              - 'iam:ListMFADevices'
+              - 'iam:ListVirtualMFADevices'
+              - 'iam:GetUser'
+              - 'iam:ChangePassword'
+              - 'iam:GetAccountPasswordPolicy'              
+            Resource: 
+              - !Sub 'arn:aws:iam::*:mfa/${!aws:username}'
+              - !Sub 'arn:aws:iam::*:user/${!aws:username}'
+          - Effect: Deny
+            Sid: 'BlockMostAccessUnlessSignedInWithMFA'
+            NotAction:
+              - 'iam:CreateVirtualMFADevice'
+              - 'iam:DeleteVirtualMFADevice'
+              - 'iam:DeactivateMFADevice'
+              - 'iam:EnableMFADevice'
+              - 'iam:ResyncMFADevice'
+              - 'iam:ListMFADevices'
+              - 'iam:ListVirtualMFADevices'
+              - 'iam:GetUser'
+              - 'iam:ChangePassword'
+              - 'iam:GetAccountPasswordPolicy'    
+            Resource: '*'
+            Condition:
+              BoolIfExists:
+                'aws:MultiFactorAuthPresent': false
+      Groups:
+        - !Ref infraiamGroup
+        - !Ref appiamGroup        
+        - !Ref opiamGroup            
+
+  taiuiprestrictionsPolicy: 
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub ${SystemName}-${Env}-taiu-iprestrictions-policy
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Deny
+            Sid: 'iprestrictions'
+            Action: '*'
+            Resource: '*'
+            Condition:
+              NotIpAddress:
+                'aws:SourceIp':
+                  - xxx.xxx.xxx.1/32
+                  - xxx.xxx.xxx.2/32
+              Bool:
+                'aws:ViaAWSService': false
+      Groups:
+        - !Ref infraiamGroup  
+        - !Ref appiamGroup                              
+        - !Ref opiamGroup       
+        - !Ref taiuiamGroup               
+
+  tfiprestrictionsPolicy: 
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub ${SystemName}-${Env}-ttt-iprestrictions-policy
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Deny
+            Sid: 'iprestrictions'
+            Action: '*'
+            Resource: '*'
+            Condition:
+              NotIpAddress:
+                'aws:SourceIp':
+                  - xxx.xxx.xxx.4/32
+                  - xxx.xxx.xxx.5/32
+              Bool:
+                'aws:ViaAWSService': false
+      Groups:
+        - !Ref ansibleiamGroup              
+
+
+
+#------------------------#
+#Infra                   #
+#------------------------#
+#------------------------#
+#IAM group               #
+#------------------------#
+
+  infraiamGroup:   
     Type: AWS::IAM::Group
     Properties:
-      GroupName: !Sub ${SystemName}-${Env}-inf-group
+      GroupName: !Sub ${SystemName}-${Env}-ttt-infra-group
       ManagedPolicyArns: 
-        - arn:aws:iam::aws:policy/AdministratorAccess
-        - arn:aws:iam::aws:policy/AmazonAPIGatewayAdministrator
+        - arn:aws:iam::aws:policy/job-function/SupportUser
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
 
-  infiamPolicy1: 
-    Type: AWS::IAM::Policy
+#------------------------#
+#IAM policy              #
+#------------------------#
+
+  infraAssume:
+    Type: AWS::IAM::ManagedPolicy
     Properties:
-      PolicyName: !Sub ${SystemName}-${Env}-inf-policy1
-      PolicyDocument: 
+      ManagedPolicyName: !Sub ${SystemName}-${Env}-ttt-infra-policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Resource: !GetAtt infraiamRole.Arn
+          Condition:
+            StringLike:
+              'sts:RoleSessionName': ${aws:username}
+      Groups:
+        - !Ref infraiamGroup
+
+#------------------------#
+#IAM role (Switch Role)  #
+#------------------------#
+
+  infraiamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${SystemName}-${Env}-ttt-infra-role
+      Path: "/"
+      AssumeRolePolicyDocument: 
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
+            Principal:
+              AWS:
+                - !Sub 'arn:aws:iam::${AWS::AccountId}:root'
             Action:
-              - 'cloudformation:*'
-            Resource: '*'
-      Groups:
-        - !Ref infiamGroup
+              - 'sts:AssumeRole'
+            Condition:
+              BoolIfExists:
+                'aws:MultiFactorAuthPresent': true
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/job-function/SupportUser
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+        - arn:aws:iam::aws:policy/job-function/Billing
+  
 
-  infiamPolicy2: 
-    Type: AWS::IAM::Policy
+
+#------------------------#
+#App                     #
+#------------------------#
+#------------------------#
+#IAM group               #
+#------------------------#
+
+  appiamGroup:   
+    Type: AWS::IAM::Group
     Properties:
-      PolicyName: !Sub ${SystemName}-${Env}-inf-policy2
-      PolicyDocument: 
+      GroupName: !Sub ${SystemName}-${Env}-ttt-app-group
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/job-function/SupportUser
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+
+#------------------------#
+#IAM policy              #
+#------------------------#
+
+  appAssume:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub ${SystemName}-${Env}-ttt-app-policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Resource: !GetAtt appiamRole.Arn
+          Condition:
+            StringLike:
+              'sts:RoleSessionName': ${aws:username}
+      Groups:
+        - !Ref appiamGroup
+
+#------------------------#
+#IAM role (Switch Role)  #
+#------------------------#
+
+  appiamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${SystemName}-${Env}-ttt-app-role
+      Path: "/"
+      AssumeRolePolicyDocument: 
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
+            Principal:
+              AWS:
+                - !Sub 'arn:aws:iam::${AWS::AccountId}:root'
             Action:
-              - 'cloudformation:Describe*'
+              - 'sts:AssumeRole'
+            Condition:
+              BoolIfExists:
+                'aws:MultiFactorAuthPresent': true
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/job-function/SupportUser
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+        - arn:aws:iam::aws:policy/job-function/Billing
+  
+
+#------------------------#
+#Op                      #
+#------------------------#
+#------------------------#
+#IAM group               #
+#------------------------#
+
+  opiamGroup:   
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub ${SystemName}-${Env}-ttt-operator-group
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/AdministratorAccess       
+
+
+#------------------------#
+#Ansible                 #
+#------------------------#
+#------------------------#
+#IAM group               #
+#------------------------#
+
+  ansibleiamGroup:   
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub ${SystemName}-${Env}-ttt-ansible-group
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+
+#------------------------#
+#IAM policy              #
+#------------------------#
+
+  ansiblepolicy: 
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub ${SystemName}-${Env}-ansible-policy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Sid: 'iamoperation'
+            Action:
+              - 'iam:CreateVirtualMFADevice'
+              - 'iam:DeleteVirtualMFADevice'
+              - 'iam:DeactivateMFADevice'
+              - 'iam:EnableMFADevice'
+              - 'iam:ResyncMFADevice'
+              - 'iam:ListMFADevices'
+              - 'iam:ListVirtualMFADevices'
+              - 'iam:GetUser'
+              - 'iam:ChangePassword'
+              - 'iam:GetAccountPasswordPolicy'              
             Resource: '*'
       Groups:
-        - !Ref infiamGroup
+        - !Ref ansibleiamGroup
+
+
+#------------------------#
+#taiu                     #
+#------------------------#
+#------------------------#
+#IAM group               #
+#------------------------#
+
+  taiuiamGroup:   
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub ${SystemName}-${Env}-taiu-log-group
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
