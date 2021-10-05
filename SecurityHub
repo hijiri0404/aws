@@ -1,0 +1,8 @@
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: Example Hub with Tags
+Resources:
+  SH:
+    Type: "AWS::SecurityHub::Hub"
+
+aws securityhub batch-enable-standards --standards-subscription-requests StandardsArn=arn:aws:securityhub:ap-northeast-1::standards/pci-dss/v/3.2.1
