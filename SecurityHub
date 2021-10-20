@@ -8,6 +8,17 @@ Resources:
 aws securityhub batch-enable-standards --standards-subscription-requests StandardsArn=arn:aws:securityhub:ap-northeast-1::standards/pci-dss/v/3.2.1
 
 
+
+
+accountid=`aws sts get-caller-identity |  jq -r '.Account'`
+echo $accountid
+
+aws securityhub update-standards-control --standards-control-arn "arn:aws:securityhub:ap-northeast-1:$accountid:control/pci-dss/v/3.2.1/PCI.CodeBuild.1"  --control-status "DISABLED" --disabled-reason "Not applicable for my service"
+
+
+
+
+
 https://docs.aws.amazon.com/cli/latest/reference/securityhub/update-standards-control.html
 
 
