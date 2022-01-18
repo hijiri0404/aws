@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  IAMManagedPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: "s3-restrict"
+      Path: "/"
+      PolicyDocument: |
+          {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Effect": "Deny",
+                      "Action": [
+                          "s3:CreateAccessPoint",
+                          "s3:CreateBucket",
+                          "s3:DeleteAccessPoint",
+                          "s3:DeleteAccessPointPolicy",
+                          "s3:DeleteBucket",
+                          "s3:DeleteBucketPolicy",
+                          "s3:DeleteBucketWebsite",
+                          "s3:PutAccelerateConfiguration",
+                          "s3:PutAccessPointPolicy",
+                          "s3:PutAnalyticsConfiguration",
+                          "s3:PutBucketAcl",
+                          "s3:PutBucketCORS",
+                          "s3:PutBucketLogging",
+                          "s3:PutBucketObjectLockConfiguration",
+                          "s3:PutBucketOwnershipControls",
+                          "s3:PutBucketPolicy",
+                          "s3:PutBucketPublicAccessBlock",
+                          "s3:PutBucketRequestPayment",
+                          "s3:PutBucketVersioning",
+                          "s3:PutBucketWebsite",
+                          "s3:PutEncryptionConfiguration",
+                          "s3:PutIntelligentTieringConfiguration",
+                          "s3:PutInventoryConfiguration",
+                          "s3:PutLifecycleConfiguration",
+                          "s3:PutMetricsConfiguration",
+                          "s3:PutReplicationConfiguration"
+                      ],
+                      "Resource": [
+                          "*"
+                      ]
+                  }
+              ]
+          }
+
