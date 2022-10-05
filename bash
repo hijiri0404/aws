@@ -19,3 +19,9 @@ gcloud logging read `timestamp<="${endtime}:59Z" AND  timestamp>="${starttime}:0
 gcloud logging read 'timestamp<="${endtime}:59Z" AND  timestamp>="${starttime}:00Z"'
 
 gcloud logging read 'timestamp<="2022-10-01T23:59:59Z" AND  timestamp>="2022-10-01T00:00:00Z"'
+
+
+gcloud logging read 'timestamp\<\=\"${endtime}:59Z\"\ \A\N\D\ timestamp\>\=\"${starttime}:00Z\"'
+
+gcloud logging read \'timestamp\<\=\"${endtime}:59Z\"\ \A\N\D\ timestamp\>\=\"${starttime}:00Z\"\'
+gcloud logging read 'timestamp<="2022-10-05T15:13:59Z" AND  timestamp>="2022-10-04T14:10:00Z"'
